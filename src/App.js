@@ -1,8 +1,9 @@
 import './App.css';
 import MatrixAnimation from "./MatrixAnimation";
-import {useState} from "react";
+import {useEffect, useState} from "react";
 import {EndUser, EndUserConstants} from "euscp";
 import axios from "axios";
+import { Buffer } from 'buffer';
 
 const euSignConfig =  {
     language: 'ua',
@@ -14,41 +15,49 @@ const euSignConfig =  {
 };
 
 function App() {
-    const [file, setFile] = useState(null);
-    const [password, setPassword] = useState(null);
+    const [buffer, setBuffer] = useState(null);
+    const [keyFile, setKeyFile] = useState(null);
+    let euSign = null;
 
-    function readFileFromFS(file) {
-        if (file.contents) {
-            return Promise.resolve(file);
-        }
+    useEffect(() => {
+        console.log()
+    }, []);
+
+    const handleFileChange = (event) => {
+        const file = event.target.files[0];
         const reader = new FileReader();
-        return new Promise((resolve, reject) => {
-            reader.onload = event => resolve({
-                name: file.name,
-                contents: Buffer.from(event.target.result),
-            });
-            reader.readAsArrayBuffer(file);
-        });
-    }
+
+        reader.onload = (e) => {
+            const arrayBuffer = e.target.result;
+            const buffer = Buffer.from(arrayBuffer);
+            setBuffer(buffer);
+        };
+
+        reader.readAsArrayBuffer(file);
+    };
 
     const initEuSign = async (euSettings) => {
-        if(!this.euSign) {
-            this.euSign = new EndUser(
-                '../../../vendor/euSign/euscp.worker.ex-1.3.69.js',
+        if(!euSign) {
+            euSign = new EndUser(
+                '../euSign/euscp.worker.ex-1.3.69.js',
                 EndUserConstants.EndUserLibraryType.JS
             );
         }
 
-        await this.euSign.Initialize(euSettings);
-        console.log(`isInitialized: ${await this.euSign.IsInitialized()}`)
+        await euSign.Initialize(euSettings);
+        console.log(`isInitialized: ${await euSign.IsInitialized()}`)
     }
 
     const signIpn = async (file) => {
         try{
+            console.log('heyFile', keyFile);
+            console.log('buffer', buffer);
             await initEuSign(euSignConfig);
 
-            const { contents } = await readFileFromFS(file);
-            const jpkKeys = await this.euSign.GetJKSPrivateKeys(contents);
+            await euSign.ReadPrivateKeyBinary(file, 'HtyfnFcflekjd20');
+            console.log('we here');
+            const jpkKeys = await euSign.GetJKSPrivateKeys(file);
+            console.log(jpkKeys);
             const lastCert = jpkKeys[0].certificates.length - 1;
             const {
                 privKeyEndTime, // конец действия сертификата
@@ -61,9 +70,8 @@ function App() {
                 publicKeyID // открытый ключ сертификата (его нужно еще слепить( publicKeyID.replace(/ /g, '')))
             } = jpkKeys[0].certificates[lastCert].infoEx;
 
-            await this.euSign.ReadPrivateKeyBinary(contents, 'HtyfnFcflekjd20');
 
-            const signedIpn = await this.euSign.SignDataInternal(
+            const signedIpn = await euSign.SignDataInternal(
                 true,
                 subjDRFOCode,
                 true,
@@ -85,13 +93,15 @@ function App() {
 
 
     const handleSubmit = async () => {
-              await signIpn(file);
+              await signIpn(buffer);
     }
 
     return (
         <div id="root" style={{}}>
-            <input type="file"/>
-            <button onClick={handleSubmit}>Click me</button>
+            {/*<input type="file" onChange={handleFileChange}/>*/}
+            <button onClick={handleSubmit}>Click second</button>
+            <input type="file" onChange={handleFileChange} />
+            {buffer && <p>File read into buffer: {buffer.toString('hex')}</p>}
         </div>
     );
 }
