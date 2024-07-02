@@ -1,0 +1,93 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>SVG Background Animation</title>
+    <style>
+        body { margin: 0; overflow: hidden; }
+        canvas { display: block; }
+    </style>
+</head>
+<body>
+<script type="importmap">
+    {
+      "imports": {
+        "three": "https://cdn.skypack.dev/three@0.140.2",
+        "SVGLoader": "https://cdn.skypack.dev/three@0.140.2/examples/jsm/loaders/SVGLoader.js"
+      }
+    }
+</script>
+<script type="module">
+    import * as THREE from 'three';
+    import { SVGLoader } from 'SVGLoader';
+
+    // Scene, Camera, Renderer
+    const scene = new THREE.Scene();
+    const camera = new THREE.PerspectiveCamera(75, window.innerWidth / window.innerHeight, 0.1, 1000);
+    const renderer = new THREE.WebGLRenderer();
+    renderer.setSize(window.innerWidth, window.innerHeight);
+    document.body.appendChild(renderer.domElement);
+
+    // Load SVG
+    const loader = new SVGLoader();
+    loader.load(
+        './boss-hugo-boss-11150.svg',  // replace with your SVG path
+        function (data) {
+            const paths = data.paths;
+            const group = new THREE.Group();
+
+            paths.forEach((path) => {
+                const material = new THREE.MeshBasicMaterial({
+                    color: path.color,
+                    side: THREE.DoubleSide,
+                    depthWrite: false
+                });
+
+                const shapes = SVGLoader.createShapes(path);
+                shapes.forEach((shape) => {
+                    const geometry = new THREE.ShapeGeometry(shape);
+                    const mesh = new THREE.Mesh(geometry, material);
+                    group.add(mesh);
+                });
+            });
+
+            group.scale.set(0.01, 0.01, 0.01);  // Scale down if necessary
+            group.position.set(-10, 0, 0); // Start position
+            scene.add(group);
+
+            animate(group);
+        },
+        // onProgress callback
+        function (xhr) {
+            console.log((xhr.loaded / xhr.total * 100) + '% loaded');
+        },
+        // onError callback
+        function (error) {
+            console.log('An error happened', error);
+        }
+    );
+
+    camera.position.z = 5;
+
+    // Animate function
+    function animate(group) {
+        requestAnimationFrame(() => animate(group));
+
+        // Move the group from left to right
+        group.position.x += 0.01;
+        if (group.position.x > 10) { // Reset position when it goes out of view
+            group.position.x = -10;
+        }
+
+        renderer.render(scene, camera);
+    }
+
+    window.addEventListener('resize', () => {
+        camera.aspect = window.innerWidth / window.innerHeight;
+        camera.updateProjectionMatrix();
+        renderer.setSize(window.innerWidth, window.innerHeight);
+    });
+</script>
+</body>
+</html>
